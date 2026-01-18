@@ -1,381 +1,30 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Info, Shield, Ghost, Calculator, Trophy, Swords, 
-  RefreshCcw, TrendingUp, Sparkles, AlertTriangle, 
-  Clock, DollarSign
-} from 'lucide-react';
-
-const BROTHERS = [
-  { id: 'ahrim', name: 'Ahrim the Blighted', level: 98, color: 'text-purple-400' },
-  { id: 'dharok', name: 'Dharok the Wretched', level: 115, color: 'text-red-400' },
-  { id: 'guthan', name: 'Guthan the Infested', level: 115, color: 'text-green-400' },
-  { id: 'karil', name: 'Karil the Tainted', level: 98, color: 'text-blue-400' },
-  { id: 'torag', name: 'Torag the Corrupted', level: 115, color: 'text-stone-400' },
-  { id: 'verac', name: 'Verac the Defiled', level: 115, color: 'text-yellow-400' },
-];
-
-const MONSTERS = [
-  { id: 'skeleton', name: 'Skeleton', level: 77 },
-  { id: 'giant_rat', name: 'Giant Rat', level: 76 },
-  { id: 'giant_spider', name: 'Giant Crypt Spider', level: 56 },
-  { id: 'bloodworm', name: 'Bloodworm', level: 52 },
-  { id: 'crypt_spider', name: 'Crypt Spider', level: 46 },
-  { id: 'crypt_rat', name: 'Crypt Rat', level: 6 },
-];
-
-const THRESHOLDS = [
-  { name: 'Mind Runes', min: 1, color: 'text-gray-400', maxQty: 1600 },
-  { name: 'Chaos Runes', min: 381, color: 'text-orange-400', maxQty: 750 },
-  { name: 'Death Runes', min: 506, color: 'text-red-400', maxQty: 350 },
-  { name: 'Blood Runes', min: 756, color: 'text-purple-400', maxQty: 150 },
-  { name: 'Bolt Racks', min: 881, color: 'text-yellow-600', maxQty: 40 },
-  { name: 'Dragon Med Helm', min: 1006, color: 'text-red-600', maxQty: 1 },
-  { name: 'Crystal Key Halves', min: 1011, color: 'text-blue-400', maxQty: 1 },
-];
-
-const App = () => {
-  // State
-  const [killedBrothers, setKilledBrothers] = useState(new Set(BROTHERS.map(b => b.id)));
-  const [monsterCounts, setMonsterCounts] = useState(
-    MONSTERS.reduce((acc, m) => ({ ...acc, [m.id]: 0 }), {})
-  );
-  const [diaryCompleted, setDiaryCompleted] = useState(true);
-  const [minutesPerRun, setMinutesPerRun] = useState(5);
-  const [supplyCost, setSupplyCost] = useState(15000);
-
-  // Stats Calculation
-  const stats = useMemo(() => {
-    const brotherLevels = BROTHERS.filter(b => killedBrothers.has(b.id)).reduce((acc, b) => acc + b.level, 0);
-    const monsterPoints = MONSTERS.reduce((acc, m) => acc + (m.level * monsterCounts[m.id]), 0);
-    const numBrothers = killedBrothers.size;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barrows Calculator</title>
     
-    // Wiki Formula: sum(levels) + numBrothers
-    const totalPoints = brotherLevels + monsterPoints + numBrothers;
-    const potentialPercent = (totalPoints / 1012) * 100;
-
-    let gearChance = 0;
-    if (numBrothers > 0) {
-      const denominator = 450 - (58 * numBrothers);
-      const chancePerRoll = 1 / denominator;
-      const numRolls = numBrothers + 1;
-      gearChance = 1 - Math.pow(1 - chancePerRoll, numRolls);
-    }
-
-    const diaryMultiplier = diaryCompleted ? 1.5 : 1.0;
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
     
-    const projections = THRESHOLDS.map(t => {
-        if (totalPoints < t.min) return { ...t, currentQty: 0 };
-        const scale = (totalPoints / 1012);
-        return {
-            ...t,
-            currentQty: Math.floor(t.maxQty * scale * (t.name.includes('Rune') ? diaryMultiplier : 1))
-        };
-    });
-
-    // Weighted average value calculation
-    const averageRuneValue = projections.reduce((acc, p) => acc + (p.currentQty * (p.name === 'Blood Runes' ? 210 : p.name === 'Death Runes' ? 180 : 50)), 0);
-    const estimatedValue = Math.floor(averageRuneValue + (gearChance * 1100000));
-    const netProfitPerChest = estimatedValue - supplyCost;
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    // Use Math.floor to ensure integer GP/Hour for clean display
-    const hourlyProfit = Math.floor((60 / minutesPerRun) * netProfitPerChest);
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-    return {
-      totalPoints,
-      potentialPercent,
-      numBrothers,
-      gearChance,
-      projections,
-      estimatedValue,
-      diaryMultiplier,
-      brotherLevels,
-      monsterPoints,
-      netProfitPerChest,
-      hourlyProfit
-    };
-  }, [killedBrothers, monsterCounts, diaryCompleted, minutesPerRun, supplyCost]);
-
-  // Actions
-  const toggleBrother = (id) => {
-    const next = new Set(killedBrothers);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setKilledBrothers(next);
-  };
-
-  const updateMonster = (id, delta) => {
-    setMonsterCounts(prev => ({
-      ...prev,
-      [id]: Math.max(0, prev[id] + delta)
-    }));
-  };
-
-  const applyPreset = (type) => {
-    const allBrothers = new Set(BROTHERS.map(b => b.id));
-    setKilledBrothers(allBrothers);
-    const resetMonsters = MONSTERS.reduce((acc, m) => ({ ...acc, [m.id]: 0 }), {});
-    
-    if (type === 'rune-efficient') {
-      setMonsterCounts({ ...resetMonsters, skeleton: 2, bloodworm: 1 });
-    } else if (type === 'max-potential') {
-      setMonsterCounts({ ...resetMonsters, skeleton: 4, giant_rat: 1 });
-    } else {
-      setMonsterCounts(resetMonsters);
-    }
-  };
-
-  // Strictly integer formatting for currencies
-  const formatGp = (num) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num) + ' gp';
-
-  return (
-    <div className="min-h-screen bg-[#08080a] text-stone-200 font-sans p-4 md:p-8 selection:bg-yellow-500/30 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header Block */}
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-stone-900/40 p-6 rounded-3xl border border-stone-800 backdrop-blur-md">
-            <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-yellow-600 to-amber-900 rounded-2xl flex items-center justify-center shadow-2xl shadow-yellow-950/20 border border-yellow-500/20 flex-shrink-0">
-                    <Shield className="w-8 h-8 text-stone-100" />
-                </div>
-                <div>
-                    <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-white uppercase italic leading-none">Barrows <span className="text-yellow-500 not-italic tracking-normal text-xl sm:text-2xl font-light">Calculator</span></h1>
-                    <div className="flex gap-3 mt-2">
-                        <button 
-                            onClick={() => setDiaryCompleted(!diaryCompleted)}
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                                diaryCompleted ? 'bg-blue-500/10 border-blue-500/40 text-blue-400' : 'bg-stone-800 border-stone-700 text-stone-500'
-                            }`}
-                        >
-                            Morytania Hard: {diaryCompleted ? 'ON' : 'OFF'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-                <button onClick={() => applyPreset('rune-efficient')} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all">
-                    <Sparkles className="w-4 h-4 text-purple-400" /> 880 (Runes)
-                </button>
-                <button onClick={() => applyPreset('max-potential')} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all">
-                    <Trophy className="w-4 h-4 text-amber-400" /> 1012 (Max)
-                </button>
-                <button onClick={() => applyPreset('reset')} className="flex-1 lg:flex-none px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all">
-                    <span className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" /> Reset</span>
-                </button>
-            </div>
-        </header>
-
-        {/* Dashboard Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
-                <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] uppercase font-black text-stone-500 tracking-widest">In-Game Potential</span>
-                    <Info className="w-3 h-3 text-stone-600" />
-                </div>
-                <div className="text-3xl font-mono font-black text-green-500">{stats.potentialPercent.toFixed(1)}%</div>
-                <div className="text-[10px] text-stone-600 font-bold uppercase mt-1">{stats.totalPoints} / 1012 Points</div>
-            </div>
-            <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
-                <span className="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Gear Chance</span>
-                <div className="text-3xl font-mono font-black text-indigo-400">{((stats.gearChance || 0) * 100).toFixed(2)}%</div>
-                <div className="text-[10px] text-stone-600 font-bold uppercase mt-1">1 in {(1/stats.gearChance || 0).toFixed(1)} Chests</div>
-            </div>
-            <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
-                <span className="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Projected GP/HR</span>
-                <div className="text-3xl font-mono font-black text-yellow-500">{formatGp(stats.hourlyProfit)}</div>
-                <div className="text-[10px] text-stone-600 font-bold uppercase mt-1">Based on {minutesPerRun}m runs</div>
-            </div>
-            <div className="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
-                <span className="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Profit / Chest</span>
-                <div className="text-3xl font-mono font-black text-emerald-500">{formatGp(stats.netProfitPerChest)}</div>
-                <div className="text-[10px] text-stone-600 font-bold uppercase mt-1">Net after supply costs</div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            {/* Left Col: Management */}
-            <div className="lg:col-span-8 space-y-6">
-                
-                {/* Formulas & Kill Management */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Ghost className="w-5 h-5 text-indigo-400" />
-                            <h2 className="text-lg font-black uppercase italic tracking-tight">Brothers Slain</h2>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                            {BROTHERS.map(b => (
-                                <button
-                                    key={b.id}
-                                    onClick={() => toggleBrother(b.id)}
-                                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200 ${
-                                        killedBrothers.has(b.id) 
-                                            ? 'bg-stone-800 border-indigo-500 text-white shadow-xl scale-[1.02]' 
-                                            : 'bg-stone-950/50 border-stone-900 text-stone-700 grayscale hover:grayscale-0 hover:bg-stone-800'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${killedBrothers.has(b.id) ? b.color.replace('text-', 'bg-') : 'bg-stone-800'}`} />
-                                        <span className="font-bold text-sm">{b.name}</span>
-                                    </div>
-                                    <span className="text-[10px] font-mono bg-black/40 px-2 py-1 rounded">LVL {b.level}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Swords className="w-5 h-5 text-red-500" />
-                            <h2 className="text-lg font-black uppercase italic tracking-tight">Crypt Killcount</h2>
-                        </div>
-                        <div className="space-y-2">
-                            {MONSTERS.map(m => (
-                                <div key={m.id} className="flex items-center justify-between bg-black/20 p-2 rounded-2xl border border-stone-800">
-                                    <div className="pl-3">
-                                        <div className="font-black text-[11px] text-stone-300 uppercase">{m.name}</div>
-                                        <div className="text-[10px] text-stone-600 font-mono">+{m.level} PTS</div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => updateMonster(m.id, -1)} className="w-8 h-8 flex items-center justify-center bg-stone-800 hover:bg-stone-700 rounded-lg font-black transition-colors">-</button>
-                                        <div className="w-10 text-center font-mono font-black text-yellow-500">{monsterCounts[m.id]}</div>
-                                        <button onClick={() => updateMonster(m.id, 1)} className="w-8 h-8 flex items-center justify-center bg-stone-800 hover:bg-stone-700 rounded-lg font-black transition-colors">+</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* GP/Hour Settings */}
-                <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
-                    <div className="flex items-center gap-2 mb-6">
-                        <Clock className="w-5 h-5 text-amber-500" />
-                        <h2 className="text-lg font-black uppercase italic tracking-tight">Hourly Rate Estimator</h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-2">Time per Chest (Minutes)</label>
-                                <div className="flex items-center gap-4">
-                                    <input 
-                                        type="range" min="1" max="15" step="0.5" 
-                                        value={minutesPerRun} 
-                                        onChange={(e) => setMinutesPerRun(parseFloat(e.target.value))}
-                                        className="w-full h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                                    />
-                                    <span className="text-xl font-mono font-black text-white w-12 text-right">{minutesPerRun}m</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-2">Supply Cost / Chest (Food, Pots, Repairs)</label>
-                                <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
-                                    <input 
-                                        type="number" 
-                                        value={supplyCost}
-                                        onChange={(e) => setSupplyCost(parseInt(e.target.value) || 0)}
-                                        className="w-full bg-black/40 border border-stone-800 rounded-xl py-3 pl-10 pr-4 text-yellow-500 font-mono font-bold focus:outline-none focus:border-yellow-600"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-stone-950/40 p-6 rounded-2xl border border-stone-800/50 flex flex-col justify-center text-center">
-                             <div className="text-stone-500 text-[10px] uppercase font-black tracking-[0.2em] mb-2">Hourly Performance Projection</div>
-                             <div className="text-3xl lg:text-4xl font-mono font-black text-amber-500 truncate">{formatGp(stats.hourlyProfit)}<span className="text-sm font-normal text-stone-600 ml-1">/HR</span></div>
-                             <div className="text-[10px] text-stone-600 font-bold uppercase mt-2">Calculation based on {minutesPerRun} minute runs</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Col: Detailed Data */}
-            <div className="lg:col-span-4 space-y-6">
-                
-                {/* The "Why does it differ?" Debugger */}
-                <div className="bg-indigo-950/20 border border-indigo-500/30 p-6 rounded-3xl shadow-lg">
-                    <h3 className="text-indigo-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Calculator className="w-4 h-4" /> Potential Breakdown
-                    </h3>
-                    <div className="space-y-3 font-mono text-[11px]">
-                        <div className="flex justify-between text-stone-400">
-                            <span>Brothers Count (1 pt each):</span>
-                            <span className="text-white">+{stats.numBrothers}</span>
-                        </div>
-                        <div className="flex justify-between text-stone-400">
-                            <span>Sum of Brother Levels:</span>
-                            <span className="text-white">+{stats.brotherLevels}</span>
-                        </div>
-                        <div className="flex justify-between text-stone-400 border-b border-indigo-500/10 pb-2">
-                            <span>Sum of Crypt Monster Levels:</span>
-                            <span className="text-white">+{stats.monsterPoints}</span>
-                        </div>
-                        <div className="flex justify-between font-black pt-1">
-                            <span className="text-indigo-300">Total Calculation:</span>
-                            <span className="text-indigo-400">{stats.totalPoints} / 1012</span>
-                        </div>
-                        <p className="text-[9px] text-stone-500 leading-tight mt-4 italic">
-                            Formula calibrated to match RuneLite / Wiki standards.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Projected Stacks */}
-                <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
-                    <div className="flex items-center gap-2 mb-6">
-                        <TrendingUp className="w-5 h-5 text-green-400" />
-                        <h2 className="text-lg font-black uppercase italic tracking-tight">Proj. Loot / Chest</h2>
-                    </div>
-                    <div className="space-y-3">
-                        {stats.projections.map(p => (
-                            <div key={p.name} className={`flex items-center justify-between transition-opacity ${p.currentQty > 0 ? 'opacity-100' : 'opacity-20'}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-1 h-6 rounded-full ${p.currentQty > 0 ? p.color.replace('text-', 'bg-') : 'bg-stone-800'}`} />
-                                    <span className={`text-[11px] font-bold ${p.currentQty > 0 ? 'text-stone-300' : 'text-stone-600'}`}>{p.name}</span>
-                                </div>
-                                <span className="text-xs font-mono font-black text-stone-400">
-                                    {p.currentQty.toLocaleString()}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                    {stats.totalPoints > 880 && (
-                        <div className="mt-4 p-3 bg-red-900/10 border border-red-900/30 rounded-xl">
-                            <div className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase mb-1">
-                                <AlertTriangle className="w-3 h-3" /> Efficiency Warning
-                            </div>
-                            <p className="text-[10px] text-stone-500 leading-tight">
-                                Potentials above 880 reduce rune profit by diluting the table with Bolt Racks and Med Helms.
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 text-center shadow-lg">
-                    <h4 className="text-[10px] font-black uppercase text-stone-500 tracking-[0.2em] mb-2">Wiki Optimal Combo</h4>
-                    <p className="text-sm text-stone-300 font-bold">2 Skeletons + 1 Bloodworm</p>
-                    <p className="text-[10px] text-stone-600 mt-1 uppercase">With 6 Brothers killed</p>
-                </div>
-            </div>
-        </div>
-
-        <footer className="text-center pt-20 pb-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-800">
-                Formula Verified vs Wiki Data • Runescape Helper
-            </p>
-        </footer>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap');
-        
+    <style>
         body { 
             font-family: 'Inter', sans-serif;
-            background-attachment: fixed;
+            background-color: #08080a;
+            color: #e7e5e4; /* stone-200 */
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
+        /* Custom Range Slider Styling */
         input[type='range']::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 16px;
@@ -384,10 +33,595 @@ const App = () => {
             border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+            margin-top: -6px;
         }
-      `}} />
-    </div>
-  );
-};
+        input[type='range']::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #292524;
+            border-radius: 2px;
+        }
+        input[type='range']:focus {
+            outline: none;
+        }
 
-export default App;
+        /* Utility for selection color */
+        ::selection {
+            background-color: rgba(234, 179, 8, 0.3);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 overflow-x-hidden min-h-screen">
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-stone-900/40 p-6 rounded-3xl border border-stone-800 backdrop-blur-md">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-gradient-to-br from-yellow-600 to-amber-900 rounded-2xl flex items-center justify-center shadow-2xl shadow-yellow-950/20 border border-yellow-500/20 flex-shrink-0">
+                    <i data-lucide="shield" class="w-8 h-8 text-stone-100"></i>
+                </div>
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-black tracking-tighter text-white uppercase italic leading-none">
+                        Barrows <span class="text-yellow-500 not-italic tracking-normal text-xl sm:text-2xl font-light">Calculator</span>
+                    </h1>
+                    <div class="flex gap-3 mt-2">
+                        <button id="diary-toggle" class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all">
+                            Morytania Hard: OFF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full lg:w-auto">
+                <button onclick="app.applyPreset('rune')" class="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all text-stone-200">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i> 880 (Runes)
+                </button>
+                <button onclick="app.applyPreset('max')" class="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all text-stone-200">
+                    <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> 1012 (Max)
+                </button>
+                <button onclick="app.applyPreset('reset')" class="flex-1 lg:flex-none px-4 py-2 bg-stone-800 hover:bg-stone-700 rounded-xl border border-stone-700 text-xs font-bold transition-all text-stone-200">
+                    <span class="flex items-center justify-center gap-1"><i data-lucide="refresh-ccw" class="w-3 h-3"></i> Reset</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Potential -->
+            <div class="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] uppercase font-black text-stone-500 tracking-widest">In-Game Potential</span>
+                    <i data-lucide="info" class="w-3 h-3 text-stone-600"></i>
+                </div>
+                <div id="potential-percent" class="text-3xl font-mono font-black text-green-500">0.0%</div>
+                <div id="total-points" class="text-[10px] text-stone-600 font-bold uppercase mt-1">0 / 1012 Points</div>
+            </div>
+            <!-- Gear Chance -->
+            <div class="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
+                <span class="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Gear Chance</span>
+                <div id="gear-percent" class="text-3xl font-mono font-black text-indigo-400">0.00%</div>
+                <div id="gear-fraction" class="text-[10px] text-stone-600 font-bold uppercase mt-1">1 in 0 Chests</div>
+            </div>
+            <!-- GP/HR -->
+            <div class="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
+                <span class="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Projected GP/HR</span>
+                <div id="hourly-profit" class="text-3xl font-mono font-black text-yellow-500">0 gp</div>
+                <div id="hourly-basis" class="text-[10px] text-stone-600 font-bold uppercase mt-1">Based on 5m runs</div>
+            </div>
+            <!-- Profit/Chest -->
+            <div class="bg-stone-900 p-5 rounded-2xl border border-stone-800 shadow-lg">
+                <span class="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-1">Profit / Chest</span>
+                <div id="chest-profit" class="text-3xl font-mono font-black text-emerald-500">0 gp</div>
+                <div class="text-[10px] text-stone-600 font-bold uppercase mt-1">Net after supply costs</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Col -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Brothers List -->
+                    <div class="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="ghost" class="w-5 h-5 text-indigo-400"></i>
+                            <h2 class="text-lg font-black uppercase italic tracking-tight text-stone-200">Brothers Slain</h2>
+                        </div>
+                        <div id="brothers-list" class="grid grid-cols-1 gap-2">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Monsters List -->
+                    <div class="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
+                        <div class="flex items-center gap-2 mb-6">
+                            <i data-lucide="swords" class="w-5 h-5 text-red-500"></i>
+                            <h2 class="text-lg font-black uppercase italic tracking-tight text-stone-200">Crypt Killcount</h2>
+                        </div>
+                        <div id="monsters-list" class="space-y-2">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
+                    <div class="flex items-center gap-2 mb-6">
+                        <i data-lucide="clock" class="w-5 h-5 text-amber-500"></i>
+                        <h2 class="text-lg font-black uppercase italic tracking-tight text-stone-200">Hourly Rate Estimator</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <!-- Time Slider -->
+                            <div>
+                                <label class="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-2">Time per Chest (Minutes)</label>
+                                <div class="flex items-center gap-4">
+                                    <input id="time-slider" type="range" min="1" max="15" step="0.5" value="5" class="w-full h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                                    <span id="time-display" class="text-xl font-mono font-black text-white w-12 text-right">5m</span>
+                                </div>
+                            </div>
+                            <!-- Supply Cost -->
+                            <div>
+                                <label class="text-[10px] uppercase font-black text-stone-500 tracking-widest block mb-2">Supply Cost / Chest</label>
+                                <div class="relative">
+                                    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600">
+                                        <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                                    </div>
+                                    <input id="supply-input" type="number" value="15000" class="w-full bg-black/40 border border-stone-800 rounded-xl py-3 pl-10 pr-4 text-yellow-500 font-mono font-bold focus:outline-none focus:border-yellow-600 transition-colors">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Summary Box -->
+                        <div class="bg-stone-950/40 p-6 rounded-2xl border border-stone-800/50 flex flex-col justify-center text-center">
+                             <div class="text-stone-500 text-[10px] uppercase font-black tracking-[0.2em] mb-2">Hourly Performance Projection</div>
+                             <div id="hourly-profit-large" class="text-3xl lg:text-4xl font-mono font-black text-amber-500 truncate">0 gp<span class="text-sm font-normal text-stone-600 ml-1">/HR</span></div>
+                             <div id="hourly-calc-note" class="text-[10px] text-stone-600 font-bold uppercase mt-2">Calculation based on 5 minute runs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Col -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Debugger -->
+                <div class="bg-indigo-950/20 border border-indigo-500/30 p-6 rounded-3xl shadow-lg">
+                    <h3 class="text-indigo-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-4 h-4"></i> Potential Breakdown
+                    </h3>
+                    <div class="space-y-3 font-mono text-[11px]">
+                        <div class="flex justify-between text-stone-400">
+                            <span>Brothers Count (1 pt each):</span>
+                            <span id="debug-brothers" class="text-white">+0</span>
+                        </div>
+                        <div class="flex justify-between text-stone-400">
+                            <span>Sum of Brother Levels:</span>
+                            <span id="debug-brother-levels" class="text-white">+0</span>
+                        </div>
+                        <div class="flex justify-between text-stone-400 border-b border-indigo-500/10 pb-2">
+                            <span>Sum of Crypt Monster Levels:</span>
+                            <span id="debug-monsters" class="text-white">+0</span>
+                        </div>
+                        <div class="flex justify-between font-black pt-1">
+                            <span class="text-indigo-300">Total Calculation:</span>
+                            <span id="debug-total" class="text-indigo-400">0 / 1012</span>
+                        </div>
+                        <p class="text-[9px] text-stone-500 leading-tight mt-4 italic">
+                            Formula calibrated to match RuneLite / Wiki standards.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Projections -->
+                <div class="bg-stone-900 p-6 rounded-3xl border border-stone-800 shadow-lg">
+                    <div class="flex items-center gap-2 mb-6">
+                        <i data-lucide="trending-up" class="w-5 h-5 text-green-400"></i>
+                        <h2 class="text-lg font-black uppercase italic tracking-tight text-stone-200">Proj. Loot / Chest</h2>
+                    </div>
+                    <div id="projections-list" class="space-y-3">
+                        <!-- Injected via JS -->
+                    </div>
+                    <div id="efficiency-warning" class="hidden mt-4 p-3 bg-red-900/10 border border-red-900/30 rounded-xl">
+                        <div class="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase mb-1">
+                            <i data-lucide="alert-triangle" class="w-3 h-3"></i> Efficiency Warning
+                        </div>
+                        <p class="text-[10px] text-stone-500 leading-tight">
+                            Potentials above 880 reduce rune profit by diluting the table with Bolt Racks and Med Helms.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-stone-900 p-6 rounded-3xl border border-stone-800 text-center shadow-lg">
+                    <h4 class="text-[10px] font-black uppercase text-stone-500 tracking-[0.2em] mb-2">Wiki Optimal Combo</h4>
+                    <p class="text-sm text-stone-300 font-bold">2 Skeletons + 1 Bloodworm</p>
+                    <p className="text-[10px] text-stone-600 mt-1 uppercase">With 6 Brothers killed</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center pt-20 pb-10">
+            <p class="text-[10px] font-black uppercase tracking-[0.4em] text-stone-800">
+                Formula Verified vs Wiki Data • Runescape Helper
+            </p>
+        </footer>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- Constants ---
+        const BROTHERS = [
+            { id: 'ahrim', name: 'Ahrim the Blighted', level: 98, color: 'text-purple-400', bg: 'bg-purple-400' },
+            { id: 'dharok', name: 'Dharok the Wretched', level: 115, color: 'text-red-400', bg: 'bg-red-400' },
+            { id: 'guthan', name: 'Guthan the Infested', level: 115, color: 'text-green-400', bg: 'bg-green-400' },
+            { id: 'karil', name: 'Karil the Tainted', level: 98, color: 'text-blue-400', bg: 'bg-blue-400' },
+            { id: 'torag', name: 'Torag the Corrupted', level: 115, color: 'text-stone-400', bg: 'bg-stone-400' },
+            { id: 'verac', name: 'Verac the Defiled', level: 115, color: 'text-yellow-400', bg: 'bg-yellow-400' },
+        ];
+
+        const MONSTERS = [
+            { id: 'skeleton', name: 'Skeleton', level: 77 },
+            { id: 'giant_rat', name: 'Giant Rat', level: 76 },
+            { id: 'giant_spider', name: 'Giant Crypt Spider', level: 56 },
+            { id: 'bloodworm', name: 'Bloodworm', level: 52 },
+            { id: 'crypt_spider', name: 'Crypt Spider', level: 46 },
+            { id: 'crypt_rat', name: 'Crypt Rat', level: 6 },
+        ];
+
+        const THRESHOLDS = [
+            { name: 'Mind Runes', min: 1, color: 'text-gray-400', bg: 'bg-gray-400', maxQty: 1600 },
+            { name: 'Chaos Runes', min: 381, color: 'text-orange-400', bg: 'bg-orange-400', maxQty: 750 },
+            { name: 'Death Runes', min: 506, color: 'text-red-400', bg: 'bg-red-400', maxQty: 350 },
+            { name: 'Blood Runes', min: 756, color: 'text-purple-400', bg: 'bg-purple-400', maxQty: 150 },
+            { name: 'Bolt Racks', min: 881, color: 'text-yellow-600', bg: 'bg-yellow-600', maxQty: 40 },
+            { name: 'Dragon Med Helm', min: 1006, color: 'text-red-600', bg: 'bg-red-600', maxQty: 1 },
+            { name: 'Crystal Key Halves', min: 1011, color: 'text-blue-400', bg: 'bg-blue-400', maxQty: 1 },
+        ];
+
+        // --- State Management ---
+        const state = {
+            killedBrothers: new Set(),
+            monsterCounts: {},
+            diaryCompleted: true,
+            minutesPerRun: 5,
+            supplyCost: 15000
+        };
+
+        // --- Persistence ---
+        function loadState() {
+            try {
+                // Brothers
+                const savedBrothers = localStorage.getItem('barrows_brothers');
+                if (savedBrothers) {
+                    state.killedBrothers = new Set(JSON.parse(savedBrothers));
+                } else {
+                    BROTHERS.forEach(b => state.killedBrothers.add(b.id));
+                }
+
+                // Monsters
+                const savedMonsters = localStorage.getItem('barrows_monsters');
+                if (savedMonsters) {
+                    state.monsterCounts = JSON.parse(savedMonsters);
+                } else {
+                    MONSTERS.forEach(m => state.monsterCounts[m.id] = 0);
+                }
+
+                // Diary
+                const savedDiary = localStorage.getItem('barrows_diary');
+                state.diaryCompleted = savedDiary ? JSON.parse(savedDiary) : true;
+
+                // Minutes
+                const savedMinutes = localStorage.getItem('barrows_minutes');
+                state.minutesPerRun = savedMinutes ? parseFloat(savedMinutes) : 5;
+
+                // Costs
+                const savedCosts = localStorage.getItem('barrows_supply_cost');
+                state.supplyCost = savedCosts ? parseInt(savedCosts) : 15000;
+
+            } catch (e) {
+                console.warn("Error loading state, using defaults", e);
+                // Fallbacks if corrupt
+                BROTHERS.forEach(b => state.killedBrothers.add(b.id));
+                MONSTERS.forEach(m => state.monsterCounts[m.id] = 0);
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('barrows_brothers', JSON.stringify([...state.killedBrothers]));
+            localStorage.setItem('barrows_monsters', JSON.stringify(state.monsterCounts));
+            localStorage.setItem('barrows_diary', JSON.stringify(state.diaryCompleted));
+            localStorage.setItem('barrows_minutes', state.minutesPerRun.toString());
+            localStorage.setItem('barrows_supply_cost', state.supplyCost.toString());
+        }
+
+        // --- Logic ---
+        function calculateStats() {
+            // Points
+            let brotherLevels = 0;
+            BROTHERS.forEach(b => {
+                if (state.killedBrothers.has(b.id)) brotherLevels += b.level;
+            });
+            
+            let monsterPoints = 0;
+            MONSTERS.forEach(m => {
+                monsterPoints += (m.level * (state.monsterCounts[m.id] || 0));
+            });
+
+            const numBrothers = state.killedBrothers.size;
+            const totalPoints = brotherLevels + monsterPoints + numBrothers;
+            const potentialPercent = Math.min(100, (totalPoints / 1012) * 100);
+
+            // Gear Chance
+            let gearChance = 0;
+            if (numBrothers > 0) {
+                const denominator = 450 - (58 * numBrothers);
+                const chancePerRoll = 1 / denominator;
+                const numRolls = numBrothers + 1;
+                gearChance = 1 - Math.pow(1 - chancePerRoll, numRolls);
+            }
+
+            // Projections & Value
+            const diaryMultiplier = state.diaryCompleted ? 1.5 : 1.0;
+            const projections = THRESHOLDS.map(t => {
+                if (totalPoints < t.min) return { ...t, currentQty: 0 };
+                const scale = Math.min(1, (totalPoints / 1012));
+                const isRune = t.name.includes('Runes');
+                const qty = Math.floor(t.maxQty * scale * (isRune ? diaryMultiplier : 1));
+                return { ...t, currentQty: qty };
+            });
+
+            // GP Estimate
+            let runeValue = 0;
+            projections.forEach(p => {
+                let price = 0;
+                if (p.name.includes('Blood')) price = 210;
+                else if (p.name.includes('Death')) price = 180;
+                else if (p.name.includes('Chaos')) price = 90;
+                else if (p.name.includes('Bolt')) price = 50;
+                else if (p.name.includes('Mind')) price = 3;
+                
+                runeValue += (p.currentQty * price);
+            });
+
+            // Average gear value approx 1.1m (weighted avg of pieces)
+            const estimatedValue = Math.floor(runeValue + (gearChance * 1100000));
+            const netProfitPerChest = estimatedValue - state.supplyCost;
+            
+            const safeMinutes = state.minutesPerRun > 0 ? state.minutesPerRun : 1;
+            const hourlyProfit = Math.floor((60 / safeMinutes) * netProfitPerChest);
+
+            return {
+                totalPoints,
+                potentialPercent,
+                numBrothers,
+                gearChance,
+                projections,
+                estimatedValue,
+                netProfitPerChest,
+                hourlyProfit,
+                brotherLevels,
+                monsterPoints
+            };
+        }
+
+        // --- Render UI ---
+        const formatGp = (num) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(num) + ' gp';
+
+        const app = {
+            init: () => {
+                loadState();
+                app.bindEvents();
+                app.renderAll();
+            },
+
+            bindEvents: () => {
+                // Diary Toggle
+                document.getElementById('diary-toggle').addEventListener('click', () => {
+                    state.diaryCompleted = !state.diaryCompleted;
+                    saveState();
+                    app.renderAll();
+                });
+
+                // Time Slider
+                const timeSlider = document.getElementById('time-slider');
+                timeSlider.addEventListener('input', (e) => {
+                    state.minutesPerRun = parseFloat(e.target.value);
+                    document.getElementById('time-display').innerText = state.minutesPerRun + 'm';
+                    saveState();
+                    app.renderAll();
+                });
+
+                // Supply Input
+                document.getElementById('supply-input').addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value);
+                    state.supplyCost = isNaN(val) ? 0 : val;
+                    saveState();
+                    app.renderAll();
+                });
+            },
+
+            renderAll: () => {
+                const stats = calculateStats();
+                app.renderBrothers();
+                app.renderMonsters();
+                app.renderDashboard(stats);
+                app.renderProjections(stats);
+                app.renderDebug(stats);
+                app.renderControls();
+                
+                // Re-init icons for newly added DOM elements
+                lucide.createIcons();
+            },
+
+            renderControls: () => {
+                const diaryBtn = document.getElementById('diary-toggle');
+                if (state.diaryCompleted) {
+                    diaryBtn.className = "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all bg-blue-500/10 border-blue-500/40 text-blue-400";
+                    diaryBtn.innerText = "Morytania Hard: ON";
+                } else {
+                    diaryBtn.className = "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all bg-stone-800 border-stone-700 text-stone-500";
+                    diaryBtn.innerText = "Morytania Hard: OFF";
+                }
+                
+                // Set inputs
+                document.getElementById('time-slider').value = state.minutesPerRun;
+                document.getElementById('time-display').innerText = state.minutesPerRun + 'm';
+                document.getElementById('supply-input').value = state.supplyCost;
+            },
+
+            renderBrothers: () => {
+                const container = document.getElementById('brothers-list');
+                container.innerHTML = '';
+                BROTHERS.forEach(b => {
+                    const isKilled = state.killedBrothers.has(b.id);
+                    const btn = document.createElement('button');
+                    
+                    // Dynamic styling based on state
+                    let classes = "flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200 w-full ";
+                    if (isKilled) {
+                        classes += "bg-stone-800 border-indigo-500 text-white shadow-xl scale-[1.02]";
+                    } else {
+                        classes += "bg-stone-950/50 border-stone-900 text-stone-700 grayscale hover:grayscale-0 hover:bg-stone-800";
+                    }
+                    btn.className = classes;
+
+                    // Dot color
+                    const dotClass = isKilled ? b.bg : 'bg-stone-800';
+
+                    btn.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full ${dotClass}"></div>
+                            <span class="font-bold text-sm">${b.name}</span>
+                        </div>
+                        <span class="text-[10px] font-mono bg-black/40 px-2 py-1 rounded">LVL ${b.level}</span>
+                    `;
+
+                    btn.onclick = () => {
+                        if (state.killedBrothers.has(b.id)) state.killedBrothers.delete(b.id);
+                        else state.killedBrothers.add(b.id);
+                        saveState();
+                        app.renderAll();
+                    };
+                    container.appendChild(btn);
+                });
+            },
+
+            renderMonsters: () => {
+                const container = document.getElementById('monsters-list');
+                container.innerHTML = '';
+                MONSTERS.forEach(m => {
+                    const count = state.monsterCounts[m.id] || 0;
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between bg-black/20 p-2 rounded-2xl border border-stone-800";
+                    
+                    div.innerHTML = `
+                        <div class="pl-3">
+                            <div class="font-black text-[11px] text-stone-300 uppercase">${m.name}</div>
+                            <div class="text-[10px] text-stone-600 font-mono">+${m.level} PTS</div>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button class="monster-dec w-8 h-8 flex items-center justify-center bg-stone-800 hover:bg-stone-700 rounded-lg font-black transition-colors text-stone-200">-</button>
+                            <div class="w-10 text-center font-mono font-black text-yellow-500">${count}</div>
+                            <button class="monster-inc w-8 h-8 flex items-center justify-center bg-stone-800 hover:bg-stone-700 rounded-lg font-black transition-colors text-stone-200">+</button>
+                        </div>
+                    `;
+
+                    // Bind click events manually to avoid weirdness
+                    div.querySelector('.monster-dec').onclick = () => {
+                        state.monsterCounts[m.id] = Math.max(0, count - 1);
+                        saveState();
+                        app.renderAll();
+                    };
+                    div.querySelector('.monster-inc').onclick = () => {
+                        state.monsterCounts[m.id] = count + 1;
+                        saveState();
+                        app.renderAll();
+                    };
+
+                    container.appendChild(div);
+                });
+            },
+
+            renderDashboard: (stats) => {
+                document.getElementById('potential-percent').innerText = stats.potentialPercent.toFixed(1) + '%';
+                document.getElementById('total-points').innerText = stats.totalPoints + ' / 1012 Points';
+                
+                document.getElementById('gear-percent').innerText = (stats.gearChance * 100).toFixed(2) + '%';
+                const frac = stats.gearChance > 0 ? (1/stats.gearChance).toFixed(1) : '0';
+                document.getElementById('gear-fraction').innerText = `1 in ${frac} Chests`;
+
+                document.getElementById('hourly-profit').innerText = formatGp(stats.hourlyProfit);
+                document.getElementById('hourly-basis').innerText = `Based on ${state.minutesPerRun}m runs`;
+
+                document.getElementById('hourly-profit-large').innerHTML = `${formatGp(stats.hourlyProfit)}<span class="text-sm font-normal text-stone-600 ml-1">/HR</span>`;
+                document.getElementById('hourly-calc-note').innerText = `Calculation based on ${state.minutesPerRun} minute runs`;
+
+                document.getElementById('chest-profit').innerText = formatGp(stats.netProfitPerChest);
+            },
+
+            renderProjections: (stats) => {
+                const container = document.getElementById('projections-list');
+                container.innerHTML = '';
+                stats.projections.forEach(p => {
+                    const isActive = p.currentQty > 0;
+                    const div = document.createElement('div');
+                    div.className = `flex items-center justify-between transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-20'}`;
+                    
+                    const barClass = isActive ? p.bg : 'bg-stone-800';
+                    const textClass = isActive ? 'text-stone-300' : 'text-stone-600';
+
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-1 h-6 rounded-full ${barClass}"></div>
+                            <span class="text-[11px] font-bold ${textClass}">${p.name}</span>
+                        </div>
+                        <span class="text-xs font-mono font-black text-stone-400">
+                            ${p.currentQty.toLocaleString()}
+                        </span>
+                    `;
+                    container.appendChild(div);
+                });
+
+                const warning = document.getElementById('efficiency-warning');
+                if (stats.totalPoints > 880) {
+                    warning.classList.remove('hidden');
+                } else {
+                    warning.classList.add('hidden');
+                }
+            },
+
+            renderDebug: (stats) => {
+                document.getElementById('debug-brothers').innerText = '+' + stats.numBrothers;
+                document.getElementById('debug-brother-levels').innerText = '+' + stats.brotherLevels;
+                document.getElementById('debug-monsters').innerText = '+' + stats.monsterPoints;
+                document.getElementById('debug-total').innerText = stats.totalPoints + ' / 1012';
+            },
+
+            applyPreset: (type) => {
+                // Reset all first
+                BROTHERS.forEach(b => state.killedBrothers.add(b.id)); // Default all brothers
+                MONSTERS.forEach(m => state.monsterCounts[m.id] = 0);
+
+                if (type === 'rune') {
+                    // 2 skel, 1 bloodworm
+                    state.monsterCounts['skeleton'] = 2;
+                    state.monsterCounts['bloodworm'] = 1;
+                } else if (type === 'max') {
+                    state.monsterCounts['skeleton'] = 4;
+                    state.monsterCounts['giant_rat'] = 1;
+                } else if (type === 'reset') {
+                    // Just reset monsters to 0 (already done) and brothers to all
+                }
+
+                saveState();
+                app.renderAll();
+            }
+        };
+
+        // Start
+        window.addEventListener('DOMContentLoaded', app.init);
+    </script>
+</body>
+</html>
